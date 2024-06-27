@@ -1,16 +1,7 @@
-document.addEventListener('DOMContentLoaded', function() {
-    loadInventory();
-    loadTodaysStats();
-
-    document.getElementById('addBookBtn').addEventListener('click', addBook);
-    document.getElementById('sellBookBtn').addEventListener('click', sellBook);
-    document.getElementById('filterDateBtn').addEventListener('click', filterStatsByDate);
-    document.getElementById('exportInventoryBtn').addEventListener('click', exportCurrentInventory);
-    document.getElementById('exportStatsBtn').addEventListener('click', exportTodaysStatistics);
-});
+const BASE_URL = 'https://harvardbooks-328e81ecb17d.herokuapp.com/';
 
 function loadInventory() {
-    fetch('https://harvardbooks-328e81ecb17d.herokuapp.com/api/data')
+    fetch(`${BASE_URL}/api/data`)
         .then(response => response.json())
         .then(data => {
             const inventoryTable = document.getElementById('inventoryTable').getElementsByTagName('tbody')[0];
@@ -21,10 +12,12 @@ function loadInventory() {
                 row.insertCell().textContent = book.title;
                 row.insertCell().textContent = book.price.toLocaleString();
                 row.insertCell().textContent = book.quantity;
+                row.insertCell().textContent = (book.price * book.quantity).toLocaleString();
 
                 const editCell = row.insertCell();
                 const editIcon = document.createElement('i');
                 editIcon.classList.add('bi', 'bi-pencil-square', 'edit-icon');
+                editIcon.style.cursor = 'pointer';
                 editIcon.addEventListener('click', () => editBook(index, book.title));
                 editCell.appendChild(editIcon);
             });
@@ -32,7 +25,7 @@ function loadInventory() {
 }
 
 function loadTodaysStats() {
-    fetch('https://harvardbooks-328e81ecb17d.herokuapp.com/api/data')
+    fetch(`${BASE_URL}/api/data`)
         .then(response => response.json())
         .then(data => {
             const statsTable = document.getElementById('statsTable').getElementsByTagName('tbody')[0];
@@ -49,6 +42,7 @@ function loadTodaysStats() {
                 const deleteCell = row.insertCell();
                 const deleteIcon = document.createElement('i');
                 deleteIcon.classList.add('bi', 'bi-trash', 'delete-icon');
+                deleteIcon.style.cursor = 'pointer';
                 deleteIcon.addEventListener('click', () => deleteTransaction(index));
                 deleteCell.appendChild(deleteIcon);
             });
@@ -59,7 +53,7 @@ function addBook() {
     const title = document.getElementById('bookTitle').value;
     const quantity = parseInt(document.getElementById('quantity').value);
 
-    fetch('https://harvardbooks-328e81ecb17d.herokuapp.com/api/books', {
+    fetch(`${BASE_URL}/api/books`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -77,7 +71,7 @@ function sellBook() {
     const title = document.getElementById('sellBookTitle').value;
     const quantity = parseInt(document.getElementById('sellQuantity').value);
 
-    fetch('https://harvardbooks-328e81ecb17d.herokuapp.com/api/books', {
+    fetch(`${BASE_URL}/api/books`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -95,7 +89,7 @@ function addTransaction(action, book, quantity) {
     const total = getPrice(book) * quantity;
     const timestamp = new Date().toLocaleString();
 
-    fetch('https://harvardbooks-328e81ecb17d.herokuapp.com/api/transactions', {
+    fetch(`${BASE_URL}/api/transactions`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -111,87 +105,41 @@ function addTransaction(action, book, quantity) {
 function filterStatsByDate() {
     const filterDate = document.getElementById('filterDate').value;
 
-    fetch('https://harvardbooks-328e81ecb17d.herokuapp.com/api/data')
+    fetch(`${BASE_URL}/api/transactions?date=${filterDate}`)
         .then(response => response.json())
-        .then(data => {
+        .then(transactions => {
             const statsTable = document.getElementById('statsTable').getElementsByTagName('tbody')[0];
             statsTable.innerHTML = '';
 
-            data.transactions.forEach((transaction, index) => {
-                const transactionDate = new Date(transaction.timestamp).toISOString().split('T')[0];
-                if (transactionDate === filterDate) {
-                    const row = statsTable.insertRow();
-                    row.insertCell().textContent = transaction.action;
-                    row.insertCell().textContent = transaction.book;
-                    row.insertCell().textContent = transaction.quantity;
-                    row.insertCell().textContent = transaction.total.toLocaleString();
-                    row.insertCell().textContent = transaction.timestamp;
+            transactions.forEach((transaction, index) => {
+                const row = statsTable.insertRow();
+                row.insertCell().textContent = transaction.action;
+                row.insertCell().textContent = transaction.book;
+                row.insertCell().textContent = transaction.quantity;
+                row.insertCell().textContent = transaction.total.toLocaleString();
+                row.insertCell().textContent = transaction.timestamp;
 
-                    const deleteCell = row.insertCell();
-                    const deleteIcon = document.createElement('i');
-                    deleteIcon.classList.add('bi', 'bi-trash', 'delete-icon');
-                    deleteIcon.addEventListener('click', () => deleteTransaction(index));
-                    deleteCell.appendChild(deleteIcon);
-                }
+                const deleteCell = row.insertCell();
+                const deleteIcon = document.createElement('i');
+                deleteIcon.classList.add('bi', 'bi-trash', 'delete-icon');
+                deleteIcon.style.cursor = 'pointer';
+                deleteIcon.addEventListener('click', () => deleteTransaction(index));
+                deleteCell.appendChild(deleteIcon);
             });
-        });
-}
-
-function exportCurrentInventory() {
-    fetch('https://harvardbooks-328e81ecb17d.herokuapp.com/api/data')
-        .then(response => response.json())
-        .then(data => {
-            let csvContent = "data:text/csv;charset=utf-8,Title,Price,Quantity\n";
-
-            data.books.forEach(book => {
-                const row = `${book.title},${book.price},${book.quantity}\n`;
-                csvContent += row;
-            });
-
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement('a');
-            link.setAttribute('href', encodedUri);
-            link.setAttribute('download', 'current_inventory.csv');
-            document.body.appendChild(link);
-
-            link.click();
-        });
-}
-
-function exportTodaysStatistics() {
-    fetch('https://harvardbooks-328e81ecb17d.herokuapp.com/api/data')
-        .then(response => response.json())
-        .then(data => {
-            let csvContent = "data:text/csv;charset=utf-8,Action,Book,Quantity,Total,Timestamp\n";
-
-            data.transactions.forEach(transaction => {
-                const row = `${transaction.action},${transaction.book},${transaction.quantity},${transaction.total},${transaction.timestamp}\n`;
-                csvContent += row;
-            });
-
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement('a');
-            link.setAttribute('href', encodedUri);
-            link.setAttribute('download', 'todays_statistics.csv');
-            document.body.appendChild(link);
-
-            link.click();
         });
 }
 
 function editBook(index, title) {
     const password = prompt('Enter password to edit:');
-
     if (password === 'Rasul9898aa') {
-        const quantity = prompt('Enter new quantity:');
-
-        if (quantity !== null) {
-            fetch('https://harvardbooks-328e81ecb17d.herokuapp.com/api/books', {
-                method: 'POST',
+        const newQuantity = prompt('Enter new quantity:');
+        if (newQuantity !== null) {
+            fetch(`${BASE_URL}/api/books/${index}`, {
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ title: title, quantity: parseInt(quantity) })
+                body: JSON.stringify({ quantity: parseInt(newQuantity) })
             })
                 .then(response => response.json())
                 .then(() => {
@@ -203,11 +151,10 @@ function editBook(index, title) {
     }
 }
 
-function deleteTransaction(id) {
+function deleteTransaction(index) {
     const password = prompt('Enter password to delete:');
-
     if (password === 'Rasul9898aa') {
-        fetch(`https://harvardbooks-328e81ecb17d.herokuapp.com/api/transactions/${id}`, {
+        fetch(`${BASE_URL}/api/transactions/${index}`, {
             method: 'DELETE'
         })
             .then(response => response.json())
@@ -240,3 +187,44 @@ function getPrice(title) {
     };
     return prices[title];
 }
+
+function exportCurrentInventory() {
+    fetch(`${BASE_URL}/api/data`)
+        .then(response => response.json())
+        .then(data => {
+            const csv = convertToCSV(data.books);
+            downloadCSV(csv, 'current_inventory.csv');
+        });
+}
+
+function exportTodaysStatistics() {
+    fetch(`${BASE_URL}/api/data`)
+        .then(response => response.json())
+        .then(data => {
+            const csv = convertToCSV(data.transactions);
+            downloadCSV(csv, 'todays_statistics.csv');
+        });
+}
+
+function convertToCSV(data) {
+    const array = [Object.keys(data[0])].concat(data);
+
+    return array.map(row => {
+        return Object.values(row).map(value => {
+            return typeof value === 'string' ? JSON.stringify(value) : value;
+        }).toString();
+    }).join('\n');
+}
+
+function downloadCSV(csv, filename) {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    loadInventory();
+    loadTodaysStats();
+});
